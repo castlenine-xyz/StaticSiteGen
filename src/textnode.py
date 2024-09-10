@@ -6,8 +6,10 @@ class TextNode:
 
     def __eq__(self,other_TextNode) -> bool:
         # check if two textnodes have same text type
-        if self.text_type==other_TextNode.text_type:
-            return True
+        if self.text==other_TextNode.text:
+            if self.text_type==other_TextNode.text_type:
+                if self.url==other_TextNode.url:
+                    return True
         return False # fallback case
     def __repr__(self) -> str:
         return f"TextNode({self.text}, {self.text_type}, {self.url})"
