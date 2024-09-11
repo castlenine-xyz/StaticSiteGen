@@ -1,23 +1,47 @@
 import re
+import os
 from textnode import TextNode
 from htmlnode import HTMLNode,LeafNode,ParentNode
 
 def main():
     txt_node=TextNode("This is a text node", "bold", "https://www.boot.dev")
     node = TextNode("This is text with a `code block` word", "text")
-    mrkdwn='''# This is a heading
-
-This is a paragraph of text. It has some **bold** and *italic* words inside of it.
-
-* This is the first list item in a list block
-* This is a list item
-* This is another list item'''
+    generate_page("./content/index.md","./template.html","public/index.html")
     
-    markdown_to_html(mrkdwn)
+    # markdown_to_html(mrkdwn)
 
 
+def generate_page(from_path, template_path, dest_path):
+    print(f'Generating page from {from_path} to {dest_path} using {template_path}')
+    markdown_from=read_markdown_file(from_path)
+    markdown_template=read_markdown_file(template_path)
+    html_str=markdown_to_html(markdown_from)
+    title=extract_title(markdown_from)
+    filled_html = markdown_template.replace('{{ Title }}', title)
+    filled_html = filled_html.replace('{{ Content }}', html_str)
 
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    with open(dest_path, 'w') as dest_file:
+        dest_file.write(filled_html)
+    print(f'Page generated and saved to {dest_path}')
+    
+def read_markdown_file(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            markdown_content = file.read()
+        return markdown_content
+    except FileNotFoundError:
+        print(f"Error: The file at '{file_path}' was not found.")
+        raise
 
+def extract_title(markdown):
+    blocks=markdown_to_blocks(markdown)
+    for block in blocks:
+        block_type=get_block_tag(block)
+        print(block_type)
+        if block_type=="h1":
+            return block[2:]
+    raise Exception("no title make a h1")
 
 def markdown_to_html(markdown):
     #first conver markdown to blocks
@@ -30,10 +54,12 @@ def markdown_to_html(markdown):
     for block in blocks:
         block_type=get_block_tag(block)
         block_types.append(block_type)
-        if block_type!="paragraph":
+        if block_type!="p":
             txt=block[2:]
         else:
+            # print("hey not a p")
             txt=block
+        # print(txt)
         text_nodes=text_to_textnodes(txt)
         block_text_nodes.append(text_nodes)
         html_str=""
@@ -43,36 +69,42 @@ def markdown_to_html(markdown):
         html_nodes.append(html_str)
             # html_nodes.append(text_node_to_html_node(text_node).to_html())
         # print(block[2:])
-    nice_printing_text_node_list(block_types)
+    # nice_printing_text_node_list(block_types)
     # nice_printing_text_node_list(block_text_nodes)
-    nice_printing_text_node_list(html_nodes)
+    # nice_printing_text_node_list(html_nodes)
     # print(text_node_to_html_node(block_text_nodes[0][0]).to_html())
 
 
     #init god
     children=[]
     index=-1
-    while index < len(html_nodes):
+    while index < len(html_nodes)-1:
         index+=1
         # handle lists
+        # print(block_types,index)
         if block_types[index] in {"ul","ol"}:
             reference=block_types[index]
             kids=""
             while index<len(html_nodes) and block_types[index]==reference :
-                kids+="<li>"+html_nodes[index][4:-5]+"</li>"
+                kids+="<li>"+html_nodes[index][4:-5].lstrip()+"</li>"
                 index+=1
             children.append(f'<{reference}>{kids}</{reference}>')
         elif block_types[index]=="code":
             children.append(f'<pre>{html_nodes[index]}</pre>')
         else:
             children.append(html_nodes[index])
-    nice_printing_text_node_list(children)
+    # nice_printing_text_node_list(children)
 
 
-
-
+    final_ans="<div>"
+    for entry in children:
+        final_ans+=entry
+    final_ans+="</div>"
+    return final_ans
     # lastly put all kids in a main div
-    god=HTMLNode("div",None,children,None)
+    # god=HTMLNode("div",None,children,None)
+    # print(god)
+    # return god
 
 # ---------- text node functions, should prolly move to other file ---------
 def text_node_to_html_node(text_node):
@@ -185,6 +217,7 @@ def split_nodes_images_and_links(text_node):
             if text_node.text[index]==')': #end of an image or link
                 if text_node.text[prev]=='[': # close a link tag
                     link=links[link_index]
+                    link_index+=1
                     txt=link[0]
                     url=link[1]
                     new_node=TextNode(txt,"link",url)
@@ -192,8 +225,10 @@ def split_nodes_images_and_links(text_node):
                     index+=1
                     prev=index
                     in_link_or_image=False
-                elif text_node.text[prev]=='!': # found a image
-                    image=images[link_index]
+                elif text_node.text[prev]=='!'and text_node.text[prev+1]=='[]': # found a image
+                    # print(images,image_index)
+                    image=images[image_index]
+                    image_index+=1
                     txt=image[0]
                     url=image[1]
                     new_node=TextNode(txt,"image",url)
@@ -259,12 +294,12 @@ def get_block_tag(block):
     #heading type
     if block[0]=="#":
         temp=block.split()
-        temp=len(temp)
+        temp=len(temp[0])
         return f'h{temp}'
     if block[0:3]=="```":
         return "code"
     if block[0]==">":
-        return "blockqoute"
+        return "blockquote"
     if block[0:2]=="* " or block[0:2]=="- ":
         return "ul"
     if block[0].isdigit() and block[1]==".":
