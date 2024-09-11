@@ -6,10 +6,37 @@ from htmlnode import HTMLNode,LeafNode,ParentNode
 def main():
     txt_node=TextNode("This is a text node", "bold", "https://www.boot.dev")
     node = TextNode("This is text with a `code block` word", "text")
-    generate_page("./content/index.md","./template.html","public/index.html")
-    
+    # generate_page("./content/index.md","./template.html","public/index.html")
+    generate_pages_recursive("./content","./template.html","public")
     # markdown_to_html(mrkdwn)
 
+
+import os
+
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+    markdown_template = read_markdown_file(template_path)
+
+    # go through all the files and directories in the content path
+    for root, dirs, files in os.walk(dir_path_content):
+        for file in files:
+            if file.endswith(".md"):
+                # get the full path to the markdown file
+                markdown_file_path = os.path.join(root, file)
+                
+                # get the relative path to preserve the directory structure
+                relative_path = os.path.relpath(root, dir_path_content)
+                
+                # build the destination directory structure in the output 
+                dest_dir = os.path.join(dest_dir_path, relative_path)
+                os.makedirs(dest_dir, exist_ok=True)
+
+                # destination HTML file name, replacing .md with .html
+                dest_file_path = os.path.join(dest_dir, file.replace(".md", ".html"))
+
+                # generate_page to generate the HTML page
+                generate_page(markdown_file_path, template_path, dest_file_path)
+
+    print(f'All markdown files processed and HTML pages generated at {dest_dir_path}')
 
 def generate_page(from_path, template_path, dest_path):
     print(f'Generating page from {from_path} to {dest_path} using {template_path}')
@@ -38,7 +65,7 @@ def extract_title(markdown):
     blocks=markdown_to_blocks(markdown)
     for block in blocks:
         block_type=get_block_tag(block)
-        print(block_type)
+        # print(block_type)
         if block_type=="h1":
             return block[2:]
     raise Exception("no title make a h1")
@@ -74,8 +101,6 @@ def markdown_to_html(markdown):
     # nice_printing_text_node_list(html_nodes)
     # print(text_node_to_html_node(block_text_nodes[0][0]).to_html())
 
-
-    #init god
     children=[]
     index=-1
     while index < len(html_nodes)-1:
@@ -101,10 +126,6 @@ def markdown_to_html(markdown):
         final_ans+=entry
     final_ans+="</div>"
     return final_ans
-    # lastly put all kids in a main div
-    # god=HTMLNode("div",None,children,None)
-    # print(god)
-    # return god
 
 # ---------- text node functions, should prolly move to other file ---------
 def text_node_to_html_node(text_node):

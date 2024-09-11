@@ -1,1 +1,1 @@
-# init
+This is a repo for a markdown to html conveter. Running ./main.sh in the root will open a local page on port 8888 where you can see the project. Builds everything out of the index.md files in the content folder
