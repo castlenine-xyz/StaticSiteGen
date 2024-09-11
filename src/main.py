@@ -5,11 +5,76 @@ from htmlnode import HTMLNode,LeafNode,ParentNode
 def main():
     txt_node=TextNode("This is a text node", "bold", "https://www.boot.dev")
     node = TextNode("This is text with a `code block` word", "text")
-    # print(txt_node)
-    # print(text_node_to_html_node(txt_node))
-    #print(split_nodes(node))
+    mrkdwn='''# This is a heading
+
+This is a paragraph of text. It has some **bold** and *italic* words inside of it.
+
+* This is the first list item in a list block
+* This is a list item
+* This is another list item'''
+    
+    markdown_to_html(mrkdwn)
 
 
+
+
+
+def markdown_to_html(markdown):
+    #first conver markdown to blocks
+    blocks=markdown_to_blocks(markdown)
+    # nice_printing_text_node_list(blocks)
+    # next get a list of block types
+    block_types=[]
+    block_text_nodes=[]
+    html_nodes=[]
+    for block in blocks:
+        block_type=get_block_tag(block)
+        block_types.append(block_type)
+        if block_type!="paragraph":
+            txt=block[2:]
+        else:
+            txt=block
+        text_nodes=text_to_textnodes(txt)
+        block_text_nodes.append(text_nodes)
+        html_str=""
+        for text_node in text_nodes:
+            html_str+=text_node_to_html_node(text_node).to_html()
+        html_str=f"<{block_type}>"+html_str+f"</{block_type}>"
+        html_nodes.append(html_str)
+            # html_nodes.append(text_node_to_html_node(text_node).to_html())
+        # print(block[2:])
+    nice_printing_text_node_list(block_types)
+    # nice_printing_text_node_list(block_text_nodes)
+    nice_printing_text_node_list(html_nodes)
+    # print(text_node_to_html_node(block_text_nodes[0][0]).to_html())
+
+
+    #init god
+    children=[]
+    index=-1
+    while index < len(html_nodes):
+        index+=1
+        # handle lists
+        if block_types[index] in {"ul","ol"}:
+            reference=block_types[index]
+            kids=""
+            while index<len(html_nodes) and block_types[index]==reference :
+                kids+="<li>"+html_nodes[index][4:-5]+"</li>"
+                index+=1
+            children.append(f'<{reference}>{kids}</{reference}>')
+        elif block_types[index]=="code":
+            children.append(f'<pre>{html_nodes[index]}</pre>')
+        else:
+            children.append(html_nodes[index])
+    nice_printing_text_node_list(children)
+
+
+
+
+    # lastly put all kids in a main div
+    god=HTMLNode("div",None,children,None)
+
+# ---------- text node functions, should prolly move to other file ---------
 def text_node_to_html_node(text_node):
     if text_node.text_type=="text":
         return LeafNode(None,text_node.text)
@@ -83,9 +148,126 @@ def split_nodes(old_node: TextNode):
 def extract_markdown_images(text):
     matches = re.findall(r"!\[(.*?)\]\((.*?)\)",text)
     return matches
+
 def extract_markdown_links(text):
     matches = re.findall(r"(?<!!)\[(.*?)\]\((.*?)\)",text)
     return matches
             
+def split_nodes_images_and_links(text_node):
+    ans=[]
+    images=extract_markdown_images(text_node.text)
+    image_index=0
+    links=extract_markdown_links(text_node.text)
+    link_index=0
+    index=-1
+    # print(text_node.text.split('['))
+    prev=0
+    in_link_or_image=False
+    while index< len(text_node.text)-1:
+        index+=1
+        if in_link_or_image==False:
+            if text_node.text[index]=='[': # found a link
+                # add previous textnode
+                txt=text_node.text[prev:index]
+                new_node=TextNode(txt,"text")
+                ans.append(new_node)
+                prev=index
+                in_link_or_image=True
+            elif text_node.text[index]=='!': # found a image
+                # add previous textnode
+                txt=text_node.text[prev:index]
+                new_node=TextNode(txt,"text")
+                ans.append(new_node)
+                prev=index
+                in_link_or_image=True
+            else: continue #
+        else: # in a image or link div
+            if text_node.text[index]==')': #end of an image or link
+                if text_node.text[prev]=='[': # close a link tag
+                    link=links[link_index]
+                    txt=link[0]
+                    url=link[1]
+                    new_node=TextNode(txt,"link",url)
+                    ans.append(new_node)
+                    index+=1
+                    prev=index
+                    in_link_or_image=False
+                elif text_node.text[prev]=='!': # found a image
+                    image=images[link_index]
+                    txt=image[0]
+                    url=image[1]
+                    new_node=TextNode(txt,"image",url)
+                    ans.append(new_node)
+                    index+=1
+                    prev=index
+                    in_link_or_image=False
+                else:continue
+            else: continue #
+    # print(text_node.text[0:index])
+    if ans==[]:
+        return [text_node]
+    return ans
+    
+def text_to_textnodes(text):
+    inital=TextNode(text,"text")
+    txt_nodes1=split_nodes(inital)
+    # nice_printing(txt_nodes1)
+    ans=[]
+    for node in txt_nodes1:
+        ans+=split_nodes_images_and_links(node)
+    return ans
 
+def nice_printing_text_node_list(nodes):
+    print("[")
+    for node in nodes:
+        print("\t"+str(node)+",")
+    print("]")
+
+
+
+def markdown_to_blocks(markdown:str):
+    temp= markdown.split("\n") # split by newlines
+    return [x.rstrip().lstrip() for x in temp if x!=''] # remove blank lines and extra whitespace
+
+# unused in final
+def block_to_block_type(block):
+    types={
+        "#":"heading",
+        "`":"code",
+        ">":"qoute",
+        "*":"unordered_list",
+        "-":"unordered_list",
+    }
+    try:
+        return types[block[0]]
+    except:
+        # check for ordered list
+        if block[0].isdigit() and block[1]==".":
+            return "ordered_list"
+        else:
+            return "paragraph"
+
+
+def get_block_tag(block):
+    types={
+        "#":"heading",
+        "`":"code",
+        ">":"qoute",
+        "*":"unordered_list",
+        "-":"unordered_list",
+    }
+    #heading type
+    if block[0]=="#":
+        temp=block.split()
+        temp=len(temp)
+        return f'h{temp}'
+    if block[0:3]=="```":
+        return "code"
+    if block[0]==">":
+        return "blockqoute"
+    if block[0:2]=="* " or block[0:2]=="- ":
+        return "ul"
+    if block[0].isdigit() and block[1]==".":
+        return "ol"
+    return "p" # paragraph fallback case
 main()

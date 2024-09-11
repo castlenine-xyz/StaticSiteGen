@@ -1,6 +1,6 @@
 import unittest
 
-from main import text_node_to_html_node,split_nodes,extract_markdown_links,extract_markdown_images
+from main import text_node_to_html_node,split_nodes,extract_markdown_links,extract_markdown_images,split_nodes_images_and_links,block_to_block_type
 from htmlnode import HTMLNode,LeafNode,ParentNode
 from textnode import TextNode
 
@@ -39,7 +39,7 @@ class TestMainFuncs(unittest.TestCase):
                 correct=True
         self.assertTrue(correct)
 
-    # split nodes testing
+    # split nodes testing ------------------------------
     def test_delim_bold(self):
         node = TextNode("This is text with a **bolded** word", "text")
         new_nodes = split_nodes(node)
@@ -102,7 +102,7 @@ class TestMainFuncs(unittest.TestCase):
             ],
             new_nodes,
         )
-        #extract images and links
+    #extract images and links -----------------------
     def test_extract_markdown_images(self):
         matches = extract_markdown_images(
             "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)"
@@ -120,6 +120,34 @@ class TestMainFuncs(unittest.TestCase):
             ],
             matches,
         )
-
+    def test_split_nodes_images_and_links(self):
+        node1 = TextNode('This is text with a link [to boot dev](https://www.boot.dev) and image ![rick roll](https://i.imgur.com/aKaOqIh.gif) and image ![obi wan](https://i.imgur.com/fJRm4Vk.jpeg) and link [to youtube](https://www.youtube.com/@bootdotdev)and image ![obi wan](https://i.imgur.com/fJRm4Vk.jpeg)',"text",)
+        correct_ans=[
+            TextNode("This is text with a link ", "text"),
+            TextNode("to boot dev", "link", "https://www.boot.dev"),
+            TextNode(" and image ", "text"),
+            TextNode("rick roll","image","https://i.imgur.com/aKaOqIh.gif"),
+            TextNode(" and image ", "text"),
+            TextNode("obi wan","image","https://i.imgur.com/fJRm4Vk.jpeg"),
+            TextNode(" and link ", "text"),
+            TextNode("to youtube", "link", "https://www.youtube.com/@bootdotdev"),
+            TextNode("and image ", "text"),
+            TextNode("obi wan","image","https://i.imgur.com/fJRm4Vk.jpeg"),
+            ]
+        
+    # --------------test blocks=--------------------------
+    def test_block_to_block_types(self):
+        block = "# heading"
+        self.assertEqual(block_to_block_type(block), "heading")
+        block = "```\ncode\n```"
+        self.assertEqual(block_to_block_type(block), "code")
+        block = "> quote\n> more quote"
+        self.assertEqual(block_to_block_type(block), "qoute")
+        block = "* list\n* items"
+        self.assertEqual(block_to_block_type(block), "unordered_list")
+        block = "1. list\n2. items"
+        self.assertEqual(block_to_block_type(block), "ordered_list")
+        block = "paragraph"
+        self.assertEqual(block_to_block_type(block), "paragraph")
 if __name__ == "__main__":
     unittest.main()
